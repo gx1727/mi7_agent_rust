@@ -1,2 +1,3 @@
 pub mod conversation;
-pub mod long_term;
+
+pub use conversation::{ConversationHistory, ConversationMessage};
