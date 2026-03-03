@@ -42,6 +42,8 @@ impl ConversationHistory {
             .map(|msg| crate::llm::Message {
                 role: msg.role.clone(),
                 content: msg.content.clone(),
+                tool_calls: None,
+                tool_call_id: None,
             })
             .collect()
     }

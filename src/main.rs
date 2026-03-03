@@ -1,7 +1,9 @@
 mod agents;
 mod config;
+mod error;
 mod llm;
 mod memory;
+mod tools;
 
 use anyhow::Result;
 use clap::Parser;
