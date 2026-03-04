@@ -162,7 +162,8 @@ impl Agent for ManagerAgent {
     }
 
     async fn process(&self, messages: Vec<Message>, llm: &LLMClient) -> Result<String> {
-        self.process_with_routing(messages, llm).await
+        // 默认不使用工具，直接对话
+        llm.chat(messages).await
     }
 
     async fn process_with_tools(
