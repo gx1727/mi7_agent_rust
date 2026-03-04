@@ -162,6 +162,18 @@ async fn run_interactive_mode(
     stream: bool,
 ) -> Result<()> {
     use std::io::{self, Write};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    
+    // 捕获 Ctrl+C 信号
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+    
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.ok();
+        println!("\n⚠️ 收到 Ctrl+C，输入 'quit' 退出");
+        r.store(false, Ordering::SeqCst);
+    });
     
     println!();
     println!("🤖 MI7 Agent Rust - 交互模式");
@@ -169,7 +181,7 @@ async fn run_interactive_mode(
     println!("命令: clear(清除历史), history(查看历史), memory(查看存储)");
     println!();
     
-    loop {
+    while running.load(Ordering::SeqCst) {
         // Print prompt
         print!("你: ");
         io::stdout().flush()?;
