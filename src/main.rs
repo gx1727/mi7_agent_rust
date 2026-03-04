@@ -5,6 +5,7 @@ mod llm;
 mod memory;
 mod tools;
 
+use std::sync::Arc;
 use anyhow::Result;
 use clap::Parser;
 use tracing::{info, Level};
@@ -13,7 +14,8 @@ use tracing_subscriber::FmtSubscriber;
 use crate::agents::{Agent, ManagerAgent};
 use crate::config::Config;
 use crate::llm::{LLMClient, Message};
-use crate::memory::ConversationHistory;
+use crate::memory::{ConversationHistory, MemoryStore};
+use crate::tools::{ToolRegistry, FileReadTool, FileWriteTool, ExecuteCommandTool};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -49,11 +51,21 @@ async fn main() -> Result<()> {
     // Create LLM client
     let llm_client = LLMClient::new(config);
     
-    // Create manager agent
+    // Initialize tools
+    let registry = init_tools();
+    info!("Tools registered: {:?}", registry.list_tools());
+    
+    // Create manager agent with tools
     let manager = ManagerAgent::new();
     
     // Create conversation history
     let mut history = ConversationHistory::new(Args::parse().max_history);
+    
+    // Initialize memory store (SQLite)
+    let memory_store = MemoryStore::new(None)?;
+    let session_id = "default";
+    memory_store.create_session(session_id, "default")?;
+    info!("Memory store initialized");
     
     info!("Agent ready: {}", manager.name());
     
@@ -62,25 +74,51 @@ async fn main() -> Result<()> {
     
     // Single prompt mode
     if let Some(prompt) = args.prompt {
-        process_single_prompt(&llm_client, &manager, &mut history, prompt, args.stream).await?;
+        process_single_prompt(&llm_client, &manager, &mut history, &memory_store, session_id, prompt, args.stream).await?;
         return Ok(());
     }
     
     // Interactive mode
-    run_interactive_mode(&llm_client, &manager, &mut history, args.stream).await?;
+    run_interactive_mode(&llm_client, &manager, &mut history, &memory_store, session_id, args.stream).await?;
     
     Ok(())
+}
+
+/// Initialize tool registry
+fn init_tools() -> ToolRegistry {
+    let mut registry = ToolRegistry::new();
+    
+    // File tools (allowed /root/work)
+    registry.register(Arc::new(FileReadTool::new(vec![
+        "/root/work".to_string(),
+    ])));
+    registry.register(Arc::new(FileWriteTool::new(vec![
+        "/root/work".to_string(),
+    ])));
+    
+    // Command tool (restricted)
+    registry.register(Arc::new(ExecuteCommandTool::new(
+        vec!["ls".to_string(), "cat".to_string(), "grep".to_string(), "find".to_string()],
+        30, // 30s timeout
+    )));
+    
+    registry
 }
 
 async fn process_single_prompt(
     llm_client: &LLMClient,
     agent: &ManagerAgent,
     history: &mut ConversationHistory,
+    memory_store: &MemoryStore,
+    session_id: &str,
     prompt: String,
     stream: bool,
 ) -> Result<()> {
     // Add user message to history
     history.add_message("user".to_string(), prompt.clone());
+    
+    // Save to SQLite
+    memory_store.save_message(session_id, "user", &prompt)?;
     
     // Get all messages including history
     let messages = history.get_messages();
@@ -93,7 +131,10 @@ async fn process_single_prompt(
         println!("{}", response);
         
         // Add assistant response to history
-        history.add_message("assistant".to_string(), response);
+        history.add_message("assistant".to_string(), response.clone());
+        
+        // Save to SQLite
+        memory_store.save_message(session_id, "assistant", &response)?;
     }
     
     Ok(())
@@ -116,6 +157,8 @@ async fn run_interactive_mode(
     llm_client: &LLMClient,
     agent: &ManagerAgent,
     history: &mut ConversationHistory,
+    memory_store: &MemoryStore,
+    session_id: &str,
     stream: bool,
 ) -> Result<()> {
     use std::io::{self, Write};
@@ -123,7 +166,7 @@ async fn run_interactive_mode(
     println!();
     println!("🤖 MI7 Agent Rust - Interactive Mode");
     println!("Type your message and press Enter. Type 'exit' or 'quit' to exit.");
-    println!("Commands: clear (clear history), history (show history)");
+    println!("Commands: clear (clear history), history (show history), memory (show stored messages)");
     println!();
     
     loop {
@@ -158,6 +201,17 @@ async fn run_interactive_mode(
             continue;
         }
         
+        if input == "memory" {
+            println!("💾 SQLite memory ({} messages):", history.len());
+            if let Ok(messages) = memory_store.get_messages(session_id, 10) {
+                for (i, msg) in messages.iter().enumerate() {
+                    let content = truncate_string(&msg.content, 50);
+                    println!("  [{}] {}: {}", i + 1, msg.role, content);
+                }
+            }
+            continue;
+        }
+        
         // Skip empty input
         if input.is_empty() {
             continue;
@@ -165,6 +219,9 @@ async fn run_interactive_mode(
         
         // Add user message to history
         history.add_message("user".to_string(), input.clone());
+        
+        // Save to SQLite
+        let _ = memory_store.save_message(session_id, "user", &input);
         
         // Get all messages
         let messages = history.get_messages();
@@ -181,7 +238,10 @@ async fn run_interactive_mode(
             println!("{}", response);
             
             // Add to history
-            history.add_message("assistant".to_string(), response);
+            history.add_message("assistant".to_string(), response.clone());
+            
+            // Save to SQLite
+            let _ = memory_store.save_message(session_id, "assistant", &response);
         }
         
         println!();
