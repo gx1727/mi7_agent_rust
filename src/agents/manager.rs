@@ -99,6 +99,7 @@ impl ManagerAgent {
         let tools = self.tools.as_ref().map(|t: &Arc<ToolRegistry>| {
             t.get_all_schemas().into_iter().map(|s| {
                 Function {
+                    type_field: "function".to_string(),
                     name: s.name,
                     description: s.description,
                     parameters: s.parameters,
