@@ -164,14 +164,14 @@ async fn run_interactive_mode(
     use std::io::{self, Write};
     
     println!();
-    println!("🤖 MI7 Agent Rust - Interactive Mode");
-    println!("Type your message and press Enter. Type 'exit' or 'quit' to exit.");
-    println!("Commands: clear (clear history), history (show history), memory (show stored messages)");
+    println!("🤖 MI7 Agent Rust - 交互模式");
+    println!("输入内容后按回车发送。输入 'exit' 或 'quit' 退出。");
+    println!("命令: clear(清除历史), history(查看历史), memory(查看存储)");
     println!();
     
     loop {
         // Print prompt
-        print!("You: ");
+        print!("你: ");
         io::stdout().flush()?;
         
         // Read input
@@ -181,19 +181,19 @@ async fn run_interactive_mode(
         
         // Check for exit commands
         if input == "exit" || input == "quit" {
-            println!("Goodbye! 👋");
+            println!("再见! 👋");
             break;
         }
         
         // Check for special commands
         if input == "clear" {
             history.clear();
-            println!("✅ Conversation history cleared");
+            println!("✅ 已清除会话历史");
             continue;
         }
         
         if input == "history" {
-            println!("📝 Conversation history ({} messages):", history.len());
+            println!("📝 会话历史 ({} 条消息):", history.len());
             for (i, msg) in history.get_messages().iter().enumerate() {
                 let content = truncate_string(&msg.content, 50);
                 println!("  [{}] {}: {}", i + 1, msg.role, content);
@@ -202,7 +202,7 @@ async fn run_interactive_mode(
         }
         
         if input == "memory" {
-            println!("💾 SQLite memory ({} messages):", history.len());
+            println!("💾 SQLite 存储 ({} 条消息):", history.len());
             if let Ok(messages) = memory_store.get_messages(session_id, 10) {
                 for (i, msg) in messages.iter().enumerate() {
                     let content = truncate_string(&msg.content, 50);
@@ -227,7 +227,7 @@ async fn run_interactive_mode(
         let messages = history.get_messages();
         
         // Print agent response
-        print!("Agent: ");
+        print!("助手: ");
         io::stdout().flush()?;
         
         // Process

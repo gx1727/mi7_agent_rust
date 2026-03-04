@@ -82,6 +82,132 @@ nano .env
 ```
 
 **DeepSeek 配置（推荐，国内稳定）：**
+
+```env
+LLM_PROVIDER=deepseek
+LLM_API_KEY=your_deepseek_api_key_here
+LLM_MODEL=deepseek-chat
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MAX_TOKENS=1000
+LLM_TEMPERATURE=0.7
+```
+
+**获取 DeepSeek API Key：**
+- 访问：https://platform.deepseek.com/
+- 注册账号并获取 API Key
+
+#### 3. 构建
+
+```bash
+cargo build --release
+```
+
+#### 4. 运行
+
+```bash
+# 基本用法
+./target/release/mi7-agent --prompt "你好，请介绍一下自己"
+
+# 流式输出
+./target/release/mi7-agent --prompt "请用三句话介绍 Rust" --stream
+
+# 查看帮助
+./target/release/mi7-agent --help
+```
+
+### 📖 使用方法
+
+#### 交互模式
+
+```bash
+# 启动交互模式
+./target/release/mi7-agent
+```
+
+**交互模式命令：**
+
+| 命令 | 说明 |
+|------|------|
+| 直接输入文字 | 与 AI 对话 |
+| `history` | 查看当前会话历史（内存） |
+| `memory` | 查看 SQLite 存储的消息 |
+| `clear` | 清除会话历史 |
+| `exit` / `quit` | 退出程序 |
+
+**使用示例：**
+
+```
+🤖 MI7 Agent Rust - 交互模式
+输入内容后按回车发送。输入 'exit' 或 'quit' 退出。
+命令: clear(清除历史), history(查看历史), memory(查看存储)
+
+你: 你好，请介绍一下自己
+
+助手: 你好！我是...
+
+你: history
+📝 会话历史 (2 条消息):
+  [1] user: 你好，请介绍一下自己
+  [2] assistant: 你好！我是...
+
+你: memory
+💾 SQLite 存储 (2 条消息):
+  [1] user: 你好，请介绍一下自己
+  [2] assistant: 你好！我是...
+
+你: clear
+✅ 已清除会话历史
+
+你: quit
+再见!
+```
+
+#### 单次对话模式
+
+```bash
+# 单次对话
+./target/release/mi7-agent --prompt "你好"
+
+# 带流式输出
+./target/release/mi7-agent --prompt "介绍一下 Rust" --stream
+```
+
+#### 配置参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--prompt` / `-p` | 输入提示 | 无 |
+| `--stream` / `-s` | 启用流式输出 | false |
+| `--max-history` | 最大历史消息数 | 10 |
+
+### 💾 数据存储
+
+- **对话历史（内存）**: 保存在当前进程内存中
+- **长期记忆（SQLite）**: `~/.local/share/mi7_agent_rust/memory.db`
+
+```bash
+# 查看数据库
+sqlite3 ~/.local/share/mi7_agent_rust/memory.db
+
+# 查看会话
+sqlite> SELECT * FROM sessions;
+
+# 查看消息
+sqlite> SELECT * FROM messages LIMIT 10;
+```
+
+### 🔧 开发
+
+```bash
+# 开发模式编译
+cargo build
+
+# 运行测试
+cargo test
+
+# 代码检查
+cargo clippy
+```
 ```env
 LLM_PROVIDER=deepseek
 LLM_API_KEY=your_deepseek_api_key_here
