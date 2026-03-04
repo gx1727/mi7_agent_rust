@@ -15,7 +15,7 @@ use crate::agents::{Agent, ManagerAgent};
 use crate::config::Config;
 use crate::llm::{LLMClient, Message};
 use crate::memory::{ConversationHistory, MemoryStore};
-use crate::tools::{ToolRegistry, FileReadTool, FileWriteTool, ExecuteCommandTool};
+use crate::tools::{ToolRegistry, FileReadTool, FileWriteTool, ExecuteCommandTool, HttpRequestTool};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -101,6 +101,13 @@ fn init_tools() -> ToolRegistry {
         vec!["ls".to_string(), "cat".to_string(), "grep".to_string(), "find".to_string()],
         30, // 30s timeout
     )));
+    
+    // HTTP Request tool (需要手动配置 token)
+    // 从环境变量读取 token
+    let token = std::env::var("HTTP_TOOL_TOKEN").ok();
+    if let Some(t) = token {
+        registry.register(Arc::new(HttpRequestTool::with_token(t)));
+    }
     
     registry
 }
