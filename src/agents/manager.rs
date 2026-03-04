@@ -7,7 +7,7 @@ use tracing::{info, debug, warn};
 
 use super::base::{Agent, AgentMessage, TaskType};
 use super::{ResearcherAgent, EngineerAgent, PlannerAgent};
-use crate::llm::{LLMClient, Message, Function, FunctionCall, ToolCall};
+use crate::llm::{LLMClient, Message, Function, FunctionDef, FunctionCall, ToolCall};
 use crate::tools::ToolRegistry;
 use crate::error::AgentError;
 
@@ -100,9 +100,11 @@ impl ManagerAgent {
             t.get_all_schemas().into_iter().map(|s| {
                 Function {
                     type_field: "function".to_string(),
-                    name: s.name,
-                    description: s.description,
-                    parameters: s.parameters,
+                    function: FunctionDef {
+                        name: s.name,
+                        description: s.description,
+                        parameters: s.parameters,
+                    },
                 }
             }).collect()
         });
@@ -162,7 +164,49 @@ impl Agent for ManagerAgent {
     }
 
     async fn process(&self, messages: Vec<Message>, llm: &LLMClient) -> Result<String> {
-        // 默认不使用工具，直接对话
+        // 使用工具（如果可用）
+        if let Some(tools) = &self.tools {
+            let tool_schemas = tools.get_all_schemas();
+            if !tool_schemas.is_empty() {
+                let functions: Vec<Function> = tool_schemas.into_iter().map(|s| {
+                    Function {
+                        type_field: "function".to_string(),
+                        function: FunctionDef {
+                            name: s.name,
+                            description: s.description,
+                            parameters: s.parameters,
+                        },
+                    }
+                }).collect();
+                
+                let response = llm.chat_with_tools(messages.clone(), Some(functions)).await?;
+                
+                // 解析 tool_calls
+                if let Ok(tool_calls) = serde_json::from_str::<Vec<ToolCall>>(&response) {
+                    if !tool_calls.is_empty() {
+                        info!("Executing {} tool calls", tool_calls.len());
+                        let results = self.execute_tool_calls(tool_calls.clone()).await?;
+                        
+                        let mut new_messages = messages.clone();
+                        // 添加带 tool_calls 的 assistant 消息
+                        new_messages.push(Message {
+                            role: "assistant".to_string(),
+                            content: String::new(),
+                            tool_calls: Some(tool_calls),
+                            tool_call_id: None,
+                        });
+                        for (call_id, result) in results {
+                            new_messages.push(Message::tool(result, call_id));
+                        }
+                        return llm.chat_with_tools(new_messages, None).await;
+                    }
+                }
+                
+                return Ok(response);
+            }
+        }
+        
+        // 没有工具时直接对话
         llm.chat(messages).await
     }
 

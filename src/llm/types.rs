@@ -46,6 +46,11 @@ pub struct FunctionCall {
 pub struct Function {
     #[serde(rename = "type")]
     pub type_field: String,
+    pub function: FunctionDef,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FunctionDef {
     pub name: String,
     pub description: String,
     pub parameters: Value,

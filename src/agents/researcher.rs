@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use anyhow::Result;
 
 use super::base::Agent;
-use crate::llm::{LLMClient, Message, Function, ToolCall};
+use crate::llm::{LLMClient, Message, Function, FunctionDef, ToolCall};
 use crate::tools::ToolRegistry;
 
 pub struct ResearcherAgent {
@@ -68,9 +68,11 @@ impl Agent for ResearcherAgent {
             t.get_all_schemas().into_iter().map(|s| {
                 Function {
                     type_field: "function".to_string(),
-                    name: s.name,
-                    description: s.description,
-                    parameters: s.parameters,
+                    function: FunctionDef {
+                        name: s.name,
+                        description: s.description,
+                        parameters: s.parameters,
+                    },
                 }
             }).collect()
         });
