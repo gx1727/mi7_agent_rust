@@ -194,8 +194,14 @@ async fn run_interactive_mode(
         // Read input (async)
         let input = match lines.next_line().await {
             Ok(Some(line)) => line,
-            Ok(None) => break,
-            Err(_) => break,
+            Ok(None) => {
+                println!("\n输入已关闭，继续运行，输入 'quit' 退出");
+                continue;
+            }
+            Err(_) => {
+                println!("\n读取错误，继续运行，输入 'quit' 退出");
+                continue;
+            }
         };
         let input = input.trim().to_string();
         
