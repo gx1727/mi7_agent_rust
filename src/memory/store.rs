@@ -82,18 +82,18 @@ impl MemoryStore {
         })
     }
     
-    /// 创建新会话
+    /// 创建新会话（如果存在则忽略）
     pub fn create_session(&self, session_id: &str, name: &str) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         let now = chrono::Utc::now().timestamp();
         
         conn.execute(
-            "INSERT INTO sessions (id, name, created_at, updated_at, message_count) 
+            "INSERT OR IGNORE INTO sessions (id, name, created_at, updated_at, message_count) 
              VALUES (?1, ?2, ?3, ?4, 0)",
             params![session_id, name, now, now],
         )?;
         
-        tracing::info!(session_id = session_id, name = name, "Session created");
+        tracing::debug!(session_id = session_id, name = name, "Session created or exists");
         Ok(())
     }
     
