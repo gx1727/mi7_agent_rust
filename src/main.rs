@@ -171,7 +171,7 @@ async fn run_interactive_mode(
     
     tokio::spawn(async move {
         tokio::signal::ctrl_c().await.ok();
-        println!("\n⚠️ 收到 Ctrl+C，输入 'quit' 退出");
+        println!("\n⚠️ 收到 Ctrl+C，继续运行，输入 'quit' 退出");
         r.store(false, Ordering::SeqCst);
     });
     
