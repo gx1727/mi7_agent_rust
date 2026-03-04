@@ -164,13 +164,15 @@ async fn run_interactive_mode(
     use std::io::{self, Write};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+    use tokio::signal::ctrl_c;
     
     // 捕获 Ctrl+C 信号
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
     
     tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.ok();
+        ctrl_c().await.ok();
         println!("\n⚠️ 收到 Ctrl+C，继续运行，输入 'quit' 退出");
         r.store(false, Ordering::SeqCst);
     });
@@ -181,14 +183,20 @@ async fn run_interactive_mode(
     println!("命令: clear(清除历史), history(查看历史), memory(查看存储)");
     println!();
     
+    let stdin = BufReader::new(tokio::io::stdin());
+    let mut lines = stdin.lines();
+    
     while running.load(Ordering::SeqCst) {
         // Print prompt
         print!("你: ");
         io::stdout().flush()?;
         
-        // Read input
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
+        // Read input (async)
+        let input = match lines.next_line().await {
+            Ok(Some(line)) => line,
+            Ok(None) => break,
+            Err(_) => break,
+        };
         let input = input.trim().to_string();
         
         // Check for exit commands
