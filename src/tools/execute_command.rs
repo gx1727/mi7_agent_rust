@@ -102,22 +102,20 @@ impl Tool for ExecuteCommandTool {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to execute: {}", e))?;
 
+        // 安全地转换输出，处理非 UTF-8 字符
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         // 限制输出大小
         let max_size = 20 * 1024; // 20KB
-        let stdout = if stdout.len() > max_size {
-            format!("{}...[truncated]", &stdout[..max_size])
-        } else {
-            stdout.to_string()
-        };
+        let stdout: String = stdout.chars().take(max_size).collect();
+        let stderr: String = stderr.chars().take(max_size).collect();
 
         Ok(serde_json::json!({
             "success": output.status.success(),
             "exit_code": output.status.code(),
             "stdout": stdout,
-            "stderr": stderr.to_string(),
+            "stderr": stderr,
         }))
     }
 }
