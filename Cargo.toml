@@ -36,6 +36,12 @@ uuid = { version = "1.11", features = ["v4", "serde"] }
 # Time
 chrono = { version = "0.4", features = ["serde"] }
 
+# Database
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# Directories
+dirs = "5.0"
+
 # Environment variables
 dotenvy = "0.15"
 
