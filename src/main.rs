@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
     info!("Tools registered: {:?}", registry.list_tools());
     
     // Create manager agent with tools
-    let manager = ManagerAgent::new();
+    let manager = ManagerAgent::new().with_tools(Arc::new(registry));
     
     // Create conversation history
     let mut history = ConversationHistory::new(Args::parse().max_history);
