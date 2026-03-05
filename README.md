@@ -56,8 +56,19 @@ mi7_agent_rust/
 │   │   ├── client.rs    # HTTP 客户端
 │   │   └── types.rs     # 类型定义
 │   ├── config/          # 配置管理
-│   ├── tools/           # 工具系统（待实现）
-│   ├── memory/          # 记忆系统（待实现）
+│   ├── tools/           # 工具系统
+│   │   ├── base.rs      # Tool trait
+│   │   ├── registry.rs  # 工具注册表
+│   │   ├── file_read.rs
+│   │   ├── file_write.rs
+│   │   ├── execute_command.rs
+│   │   └── http_request.rs
+│   ├── memory/          # 记忆系统
+│   ├── mcp/             # MCP 协议支持
+│   │   ├── client.rs    # MCP 客户端
+│   │   ├── protocol.rs  # JSON-RPC 协议
+│   │   ├── tool.rs      # MCP 工具适配器
+│   │   └── transport.rs # HTTP 传输层
 │   └── main.rs          # 主入口
 └── Cargo.toml
 ```
@@ -260,6 +271,9 @@ cargo build --release
   - Agent trait 系统
   - CLI 参数解析
   - 配置管理
+  - 工具系统（File Read/Write, Execute Command, HTTP Request）
+  - MCP 协议支持（Stdio + HTTP 传输）
+  - SQLite 记忆存储
 
 - 🔧 **进行中**
   - 工具调用（Function Calling）
@@ -282,6 +296,34 @@ cargo build --release
 | `LLM_BASE_URL` | API 基础 URL | `https://api.deepseek.com` |
 | `LLM_MAX_TOKENS` | 最大 Token 数 | `1000` |
 | `LLM_TEMPERATURE` | 温度参数 | `0.7` |
+
+### 🔌 MCP 协议支持
+
+项目支持通过 MCP (Model Context Protocol) 连接外部工具服务。
+
+#### 环境变量
+
+| 变量 | 说明 |
+|------|------|
+| `MCP_SERVERS` | Stdio 模式 MCP 服务器（格式：`command:arg1:arg2`） |
+| `MCP_SERVER_URL` | HTTP 模式 MCP 服务器地址 |
+| `MCP_TIMEOUT` | HTTP 请求超时（秒） |
+| `MCP_AUTH` | 认证 Token |
+
+#### 使用示例
+
+```bash
+# HTTP 模式 - 连接远程 MCP 服务器
+export MCP_SERVER_URL="http://localhost:3000"
+export MCP_AUTH="Bearer your-token"
+
+# Stdio 模式 - 本地 MCP 服务器
+export MCP_SERVERS="npx:@modelcontextprotocol/server-filesystem:/tmp"
+```
+
+#### MCP 工具
+
+连接 MCP 服务器后，可用的工具会自动注册到工具系统中。
 
 ### 🧪 测试
 
@@ -344,6 +386,8 @@ cargo build --release
 
 - ✅ LLM Client (DeepSeek)
 - ✅ Streaming Output
+- ✅ Tool System (File, Command, HTTP)
+- ✅ MCP Protocol Support
 - 🔧 Function Calling
 - 📋 Vector Memory
 - 📋 Agent Routing
