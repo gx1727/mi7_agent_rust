@@ -3,6 +3,7 @@ mod config;
 mod error;
 mod llm;
 mod memory;
+mod mcp;
 mod tools;
 
 use std::sync::Arc;
@@ -15,6 +16,7 @@ use crate::agents::{Agent, ManagerAgent};
 use crate::config::Config;
 use crate::llm::{LLMClient, Message};
 use crate::memory::{ConversationHistory, MemoryStore};
+use crate::mcp::McpClient;
 use crate::tools::{ToolRegistry, FileReadTool, FileWriteTool, ExecuteCommandTool, HttpRequestTool};
 
 #[derive(Parser, Debug)]
@@ -51,8 +53,8 @@ async fn main() -> Result<()> {
     // Create LLM client
     let llm_client = LLMClient::new(config);
     
-    // Initialize tools
-    let registry = init_tools();
+    // Initialize tools (including MCP tools)
+    let mut registry = init_tools().await?;
     info!("Tools registered: {:?}", registry.list_tools());
     
     // Create manager agent with tools
@@ -85,7 +87,7 @@ async fn main() -> Result<()> {
 }
 
 /// Initialize tool registry
-fn init_tools() -> ToolRegistry {
+async fn init_tools() -> Result<ToolRegistry> {
     let mut registry = ToolRegistry::new();
     
     // File tools (allowed /root/work)
@@ -109,7 +111,33 @@ fn init_tools() -> ToolRegistry {
         registry.register(Arc::new(HttpRequestTool::with_token(t)));
     }
     
-    registry
+    // MCP tools - initialize from environment variable
+    let mcp_servers = std::env::var("MCP_SERVERS").ok();
+    if let Some(servers) = mcp_servers {
+        for server in servers.split(',') {
+            let parts: Vec<&str> = server.split(':').collect();
+            if parts.len() >= 2 {
+                let command = parts[0].to_string();
+                let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+                
+                info!("Connecting to MCP server: {} {:?}", command, args);
+                
+                let mcp_client = McpClient::new().await?;
+                if let Err(e) = mcp_client.connect_stdio(&command, args.clone()).await {
+                    tracing::warn!("Failed to connect to MCP server {}: {}", command, e);
+                } else {
+                    let mcp_tools = mcp_client.list_tools().await;
+                    info!("MCP server connected with {} tools", mcp_tools.len());
+                    
+                    for tool in mcp_tools {
+                        registry.register(Arc::new(tool));
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(registry)
 }
 
 async fn process_single_prompt(
